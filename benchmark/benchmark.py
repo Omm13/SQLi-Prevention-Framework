@@ -13,6 +13,8 @@ VALID_PASSWORD = "password123"
 SQLI_USERNAME = "' OR '1'='1' /*"
 SQLI_PASSWORD = "test"
 
+NUMBER_OF_RUNS = 20
+
 RESULTS_FILE = Path(__file__).parent / "results.csv"
 
 
@@ -34,6 +36,60 @@ def test_login(endpoint, username, password):
     return response.status_code, response_time
 
 
+def run_test(implementation, endpoint, test_name, username, password):
+    response_times = []
+    status_codes = []
+
+    for _ in range(NUMBER_OF_RUNS):
+
+        status_code, response_time = test_login(
+            endpoint,
+            username,
+            password
+        )
+
+        status_codes.append(status_code)
+        response_times.append(response_time)
+
+    average_time = sum(response_times) / len(response_times)
+    minimum_time = min(response_times)
+    maximum_time = max(response_times)
+
+    if test_name == "SQL Injection":
+        blocked_count = status_codes.count(401)
+        result = (
+            "BLOCKED"
+            if blocked_count == NUMBER_OF_RUNS
+            else "VULNERABLE"
+        )
+    else:
+        successful_count = status_codes.count(200)
+        result = (
+            "PASS"
+            if successful_count == NUMBER_OF_RUNS
+            else "FAILED"
+        )
+
+    print(
+        f"{implementation:<12} "
+        f"{test_name:<18} "
+        f"Result: {result:<10} "
+        f"Avg: {average_time:.2f} ms  "
+        f"Min: {minimum_time:.2f} ms  "
+        f"Max: {maximum_time:.2f} ms"
+    )
+
+    return {
+        "implementation": implementation,
+        "test_case": test_name,
+        "runs": NUMBER_OF_RUNS,
+        "result": result,
+        "average_response_time_ms": round(average_time, 2),
+        "minimum_response_time_ms": round(minimum_time, 2),
+        "maximum_response_time_ms": round(maximum_time, 2)
+    }
+
+
 def run_benchmark():
 
     test_cases = [
@@ -49,49 +105,34 @@ def run_benchmark():
     results = []
 
     print("\nSQL Injection Prevention Benchmark")
-    print("=" * 60)
+    print("=" * 85)
+    print(f"Runs per test: {NUMBER_OF_RUNS}")
+    print("-" * 85)
 
     for implementation, endpoint in endpoints.items():
 
-        print(f"\n{implementation} Implementation")
-        print("-" * 60)
-
         for test_name, username, password in test_cases:
 
-            status_code, response_time = test_login(
+            result = run_test(
+                implementation,
                 endpoint,
+                test_name,
                 username,
                 password
             )
 
-            if test_name == "SQL Injection":
-                result = "BLOCKED" if status_code == 401 else "VULNERABLE"
-            else:
-                result = "PASS" if status_code == 200 else "FAILED"
-
-            print(
-                f"{test_name:<20} "
-                f"Status: {status_code:<3} "
-                f"Result: {result:<10} "
-                f"Time: {response_time:.2f} ms"
-            )
-
-            results.append({
-                "implementation": implementation,
-                "test_case": test_name,
-                "status_code": status_code,
-                "result": result,
-                "response_time_ms": round(response_time, 2)
-            })
+            results.append(result)
 
     with open(RESULTS_FILE, "w", newline="") as file:
 
         fieldnames = [
             "implementation",
             "test_case",
-            "status_code",
+            "runs",
             "result",
-            "response_time_ms"
+            "average_response_time_ms",
+            "minimum_response_time_ms",
+            "maximum_response_time_ms"
         ]
 
         writer = csv.DictWriter(
@@ -102,8 +143,8 @@ def run_benchmark():
         writer.writeheader()
         writer.writerows(results)
 
-    print("\nResults saved to:")
-    print(RESULTS_FILE)
+    print("-" * 85)
+    print(f"Results saved to: {RESULTS_FILE}")
 
 
 if __name__ == "__main__":
