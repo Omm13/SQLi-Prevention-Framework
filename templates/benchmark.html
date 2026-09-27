@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Benchmark - SQLi Prevention Framework{% endblock %}
+
+{% block content %}
+
+<div class="text-center mb-5">
+    <h1>SQL Injection Prevention Benchmark</h1>
+
+    <p class="lead">
+        Comparison of vulnerable and parameterized-query implementations.
+    </p>
+</div>
+
+{% if results %}
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+
+        <thead class="table-dark">
+            <tr>
+                <th>Implementation</th>
+                <th>Test Case</th>
+                <th>Runs</th>
+                <th>Result</th>
+                <th>Average (ms)</th>
+                <th>Minimum (ms)</th>
+                <th>Maximum (ms)</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for row in results %}
+            <tr>
+                <td>{{ row["implementation"] }}</td>
+
+                <td>{{ row["test_case"] }}</td>
+
+                <td>{{ row["runs"] }}</td>
+
+                <td>
+                    {% if row["result"] == "VULNERABLE" %}
+                        <span class="badge bg-danger">
+                            {{ row["result"] }}
+                        </span>
+                    {% elif row["result"] == "BLOCKED" %}
+                        <span class="badge bg-success">
+                            {{ row["result"] }}
+                        </span>
+                    {% elif row["result"] == "PASS" %}
+                        <span class="badge bg-success">
+                            {{ row["result"] }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">
+                            {{ row["result"] }}
+                        </span>
+                    {% endif %}
+                </td>
+
+                <td>{{ row["average_response_time_ms"] }}</td>
+
+                <td>{{ row["minimum_response_time_ms"] }}</td>
+
+                <td>{{ row["maximum_response_time_ms"] }}</td>
+            </tr>
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+</div>
+
+<div class="alert alert-info mt-4">
+    <strong>Interpretation:</strong>
+    The vulnerable implementation accepts the controlled SQL Injection
+    test, while the secure parameterized implementation blocks it.
+</div>
+
+{% else %}
+
+<div class="alert alert-warning">
+    <strong>No benchmark results found.</strong>
+    Run the benchmark script first:
+    <code>python benchmark/benchmark.py</code>
+</div>
+
+{% endif %}
+
+<div class="text-center mt-4">
+    <a href="/" class="btn btn-secondary">Back to Home</a>
+</div>
+
+{% endblock %}

@@ -132,5 +132,23 @@ def secure_login():
         "login": "failed"
     }), 401
 
+@app.route("/benchmark")
+def benchmark():
+    import csv
+    from pathlib import Path
+
+    results_file = Path(__file__).parent / "benchmark" / "results.csv"
+
+    results = []
+
+    if results_file.exists():
+        with open(results_file, newline="") as file:
+            results = list(csv.DictReader(file))
+
+    return render_template(
+        "benchmark.html",
+        results=results
+    )
+
 if __name__ == "__main__":
     app.run(debug=True)
