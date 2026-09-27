@@ -78,7 +78,58 @@ def vulnerable_login():
     return jsonify({
         "login": "failed"
     }), 401
+@app.route("/secure-login", methods=["GET", "POST"])
+def secure_login():
+    if request.method == "GET":
+        return """
+        <h2>Secure Login</h2>
 
+        <form method="POST">
+            <label>Username:</label>
+            <input type="text" name="username">
+
+            <br><br>
+
+            <label>Password:</label>
+            <input type="password" name="password">
+
+            <br><br>
+
+            <button type="submit">Login</button>
+        </form>
+        """
+
+    username = request.form.get("username", "")
+    password = request.form.get("password", "")
+
+    connection = get_connection()
+
+    # SECURE:
+    # User input is passed separately from the SQL statement.
+    query = """
+        SELECT id, username, role
+        FROM users
+        WHERE username = ?
+        AND password = ?
+    """
+
+    result = connection.execute(
+        query,
+        (username, password)
+    ).fetchone()
+
+    connection.close()
+
+    if result:
+        return jsonify({
+            "login": "successful",
+            "username": result["username"],
+            "role": result["role"]
+        })
+
+    return jsonify({
+        "login": "failed"
+    }), 401
 
 if __name__ == "__main__":
     app.run(debug=True)
