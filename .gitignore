@@ -4,3 +4,4 @@ __pycache__/
 *.db
 .env
 benchmark/results.csv
+benchmark/benchmark_results.png
