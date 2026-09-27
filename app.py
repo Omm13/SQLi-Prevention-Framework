@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 from database.database import initialize_database, get_connection
 
 app = Flask(__name__)
@@ -27,6 +27,57 @@ def health():
         "database": "connected",
         "users": result["count"]
     }
+
+
+@app.route("/vulnerable-login", methods=["GET", "POST"])
+def vulnerable_login():
+    if request.method == "GET":
+        return """
+        <h2>Vulnerable Login</h2>
+
+        <form method="POST">
+            <label>Username:</label>
+            <input type="text" name="username">
+
+            <br><br>
+
+            <label>Password:</label>
+            <input type="password" name="password">
+
+            <br><br>
+
+            <button type="submit">Login</button>
+        </form>
+        """
+
+    username = request.form.get("username", "")
+    password = request.form.get("password", "")
+
+    connection = get_connection()
+
+    # INTENTIONALLY VULNERABLE:
+    # User input is directly inserted into the SQL query.
+    query = f"""
+        SELECT id, username, role
+        FROM users
+        WHERE username = '{username}'
+        AND password = '{password}'
+    """
+
+    result = connection.execute(query).fetchone()
+
+    connection.close()
+
+    if result:
+        return jsonify({
+            "login": "successful",
+            "username": result["username"],
+            "role": result["role"]
+        })
+
+    return jsonify({
+        "login": "failed"
+    }), 401
 
 
 if __name__ == "__main__":
