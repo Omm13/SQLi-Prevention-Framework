@@ -1,0 +1,15 @@
+body {
+    background-color: #f5f7fa;
+}
+
+.card {
+    border: none;
+}
+
+.card-title {
+    margin-bottom: 15px;
+}
+
+footer {
+    margin-top: 40px;
+}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Home - SQLi Prevention Framework{% endblock %}
+
+{% block content %}
+
+<div class="text-center mb-5">
+    <h1>SQL Injection Prevention Framework</h1>
+
+    <p class="lead">
+        Demonstrating SQL Injection exploitation and
+        parameterized-query defenses.
+    </p>
+</div>
+
+<div class="row g-4">
+
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">Vulnerable Login</h3>
+
+                <p class="card-text">
+                    Demonstrates an intentionally vulnerable
+                    SQL query implementation.
+                </p>
+
+                <a href="/vulnerable-login"
+                   class="btn btn-danger">
+                    Open Vulnerable Login
+                </a>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">Secure Login</h3>
+
+                <p class="card-text">
+                    Uses parameterized queries to prevent
+                    SQL Injection.
+                </p>
+
+                <a href="/secure-login"
+                   class="btn btn-success">
+                    Open Secure Login
+                </a>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">Benchmark</h3>
+
+                <p class="card-text">
+                    Compare vulnerable and secure
+                    implementations.
+                </p>
+
+                <a href="/benchmark"
+                   class="btn btn-primary">
+                    View Benchmark
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

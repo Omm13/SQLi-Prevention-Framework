@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from database.database import initialize_database, get_connection
 
 app = Flask(__name__)
@@ -6,10 +6,9 @@ app = Flask(__name__)
 # Initialize the database when the application starts
 initialize_database()
 
-
 @app.route("/")
 def home():
-    return "SQL Injection Prevention Framework"
+    return render_template("index.html")
 
 
 @app.route("/health")
@@ -32,6 +31,7 @@ def health():
 @app.route("/vulnerable-login", methods=["GET", "POST"])
 def vulnerable_login():
     if request.method == "GET":
+        return render_template("vulnerable_login.html")
         return """
         <h2>Vulnerable Login</h2>
 
@@ -40,7 +40,7 @@ def vulnerable_login():
             <input type="text" name="username">
 
             <br><br>
-
+    
             <label>Password:</label>
             <input type="password" name="password">
 
@@ -81,6 +81,7 @@ def vulnerable_login():
 @app.route("/secure-login", methods=["GET", "POST"])
 def secure_login():
     if request.method == "GET":
+        return render_template("secure_login.html")
         return """
         <h2>Secure Login</h2>
 
