@@ -5,3 +5,4 @@ __pycache__/
 .env
 benchmark/results.csv
 benchmark/benchmark_results.png
+logs/

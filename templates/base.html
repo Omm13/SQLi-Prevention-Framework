@@ -13,7 +13,7 @@
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
+        href="{{ url_for('static', filename='style.css') }}"
     >
 </head>
 
@@ -24,6 +24,10 @@
         <a class="navbar-brand" href="/">
             SQLi Prevention Framework
         </a>
+        <div class="navbar-nav flex-row gap-3">
+            <a class="nav-link" href="/monitor">Monitor</a>
+            <a class="nav-link" href="/benchmark">Benchmark</a>
+        </div>
     </div>
 </nav>
 
