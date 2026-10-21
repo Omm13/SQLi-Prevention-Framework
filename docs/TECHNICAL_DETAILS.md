@@ -136,7 +136,7 @@ What this actually says:
 - OWASP Top 10 (2021): **A03 Injection**, **A09 Security Logging and Monitoring Failures** (addressed by the SIM layer), **A07 Identification and Authentication Failures** (password hashing).
 - CWE-89 (SQL Injection), CWE-532 (sensitive data in logs: avoided), CWE-204 (response discrepancy / user enumeration: mitigated by the dummy hash check).
 
-## Limitations (be upfront about these)
+## Limitations
 
 - **The detector is heuristic.** Pattern matching can be evaded and can
   false-positive. It is a visibility aid, not a defense; the parameterized
