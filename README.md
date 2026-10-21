@@ -1,166 +1,89 @@
 # SQL Injection Prevention Framework
 
-A local lab that (1) shows how SQL injection works against an intentionally
-unsafe login, (2) shows the parameterized-query fix, and (3) **monitors every
-attempt with a Security Information Management (SIM) layer**: structured
-logging, detection, correlation alerts and a dashboard.
+A small practice website that shows **how a common hacking trick works, how to stop it, and how to notice when someone tries it.**
 
-Subject: Security Information Management (SIM), Semester 7.
-Topic: *SQL Injection Prevention Framework application: demonstrate SQLi
-exploitation and benchmark parameterized query defenses.*
-
-> New to this? Read **[docs/EXPLAINED_SIMPLY.md](docs/EXPLAINED_SIMPLY.md)** first.
-> It explains the whole project without technical background.
-
-All testing runs against this app's own local server and SQLite file. Nothing
-here targets any external system.
+Made for the Semester 7 subject *Security Information Management (SIM)*.
 
 ---
 
-## What the project does
+## The idea in plain words
 
-| Part | What it shows |
-|------|---------------|
-| `/vulnerable-login` | Login built by pasting user input into SQL. The controlled demo input logs in without a password. |
-| `/secure-login` | Same login using a parameterized query and salted password hashes. The same input is rejected. |
-| `/monitor` | **SIM dashboard**: every login attempt, what looked suspicious, and active alerts. |
-| `/benchmark` | Security outcome and speed, measured at three layers with proper statistics. |
+Websites ask for a username and password. If the website is built carelessly, a trick called **SQL injection** can let someone log in **without knowing the password**.
 
-## The SIM layer (`security/`)
+This project has two login pages:
 
-| Module | Job |
-|--------|-----|
-| `events.py` | Writes one JSON line per login attempt to `logs/security_events.jsonl`. **Passwords are never logged.** Ready for ingestion by Wazuh / Elastic / Splunk. |
-| `detector.py` | Names the SQLi warning signs in submitted text (tautology pattern, comment markers, UNION/SELECT, statement terminators, time-delay calls). Combinations are required, so ordinary names like `O'Brien` are not flagged. |
-| `alerts.py` | Correlates events per source IP: repeated flagged input (high), failed-login burst (medium), and a **successful login that carried injection indicators (critical)**. |
+| Page | What it is | What happens with the trick |
+|------|------------|-----------------------------|
+| **Vulnerable Login** | Built the careless way (on purpose, for demo) | The trick works. You get in. |
+| **Secure Login** | Built the careful way | The same trick fails. |
 
-Key design point: the **detector only watches; the parameterized query
-protects.** A blocked attack on the secure endpoint is still recorded, so the
-attempt is visible to the people responsible for security.
+And one more page that watches everything:
 
-Example event:
+| Page | What it is |
+|------|------------|
+| **Security Monitor** | A log of every login attempt. Suspicious ones are marked, and an alarm is raised when they add up. |
+| **Benchmark** | A speed test: does being safe make the site slower? |
 
-```json
-{"timestamp": "2026-10-21T12:00:00.123+00:00", "event_id": "a1b2c3d4e5f6",
- "event_type": "login_attempt", "source_ip": "127.0.0.1",
- "endpoint": "/secure-login", "username": "' OR '1'='1' /*",
- "outcome": "failure", "indicators": ["comment_sequence", "quote_then_boolean"],
- "severity": "high"}
-```
+Everything runs on your own computer. Nothing here attacks any other website.
 
-## Project structure
+---
 
-```
-app.py                      Flask app: login endpoints, /monitor, /benchmark
-database/database.py        SQLite layer (plaintext lab table + hashed secure table)
-security/                   SIM layer: events, detector, alerts
-templates/ static/          Web pages and stylesheet
-tests/                      25 self-contained tests (no server needed)
-benchmark/benchmark.py      Three-layer benchmark
-benchmark/plot_results.py   Chart of the results
-docs/EXPLAINED_SIMPLY.md    Plain-language explanation
-.github/workflows/tests.yml Runs the tests on every push
-```
-
-## Quick start
+## Try it (about 3 minutes)
 
 ```bash
-git clone https://github.com/Omm13/SQLi-Prevention-Framework.git
-cd SQLi-Prevention-Framework
-python -m venv venv
-.\venv\Scripts\Activate.ps1          # Windows PowerShell
 pip install -r requirements.txt
-python app.py                        # http://127.0.0.1:5000/
+python app.py
 ```
 
-```bash
-python -m pytest -v                  # tests: no running server required
-python benchmark/benchmark.py        # benchmark: no running server required
-python benchmark/plot_results.py     # writes benchmark/benchmark_results.png
-```
+Open **http://127.0.0.1:5000** in your browser, then:
 
-### Suggested demo order (5 minutes)
+1. Go to **Vulnerable Login**. Type `' OR '1'='1' /*` as the username and anything as the password. You get logged in without a real password.
+2. Go to **Secure Login**. Type the same thing. It says no.
+3. Go to **Security Monitor**. Both tries are listed, and a red **CRITICAL** alert marks the one that worked.
 
-1. Open `/vulnerable-login`, enter `' OR '1'='1' /*` as username and anything
-   as password. Login succeeds without a valid password.
-2. Open `/secure-login`, enter the same input. It is rejected.
-3. Open `/monitor`. Both attempts are logged. The successful one on the
-   vulnerable page raised a **critical** alert; the blocked one is recorded
-   but not critical.
-4. Open `/benchmark` to show the cost comparison.
+---
 
-## Tests (25)
+## What we found
 
-Run with Flask's in-process test client against a temporary database and log,
-so they are self-contained and run in CI. They cover:
+- **Being safe costs nothing.** The safe way and the unsafe way of asking the database take the same time.
+- **The secure login is slower overall**, but only because it checks passwords carefully on purpose. That slowness is protection.
+- **Watching is cheap.** The monitoring adds almost no delay.
 
-- Vulnerable endpoint accepts the demo input; secure endpoint rejects it.
-- Valid and wrong-password logins on both endpoints.
-- **Control cases:** names with apostrophes do not crash the secure endpoint
-  and are not falsely flagged; malformed input does not crash the lab endpoint.
-- Secure table stores hashes, not plaintext.
-- **Timing safety:** an unknown username costs the same hash check as a known
-  one (otherwise response time would reveal which usernames exist).
-- Logging: required fields present, valid JSON, **passwords never written**,
-  blocked attempts still logged.
-- Alerting: critical alert on a successful attack, high alert on repeated
-  flagged input, no alert when events are spread out or from different sources.
+---
 
-## Benchmark
+## What is in the folders
 
-Warm-up runs discarded; median, 95th percentile and standard deviation are
-reported (not mean/min/max, which a single outlier distorts). Times in
-microseconds. Typical results on a development machine (yours will differ):
+| Folder / file | In simple words |
+|---------------|-----------------|
+| `app.py` | The website itself |
+| `security/` | The "security camera" part: logging, spotting suspicious input, raising alerts |
+| `database/` | Where the demo users are stored |
+| `templates/` and `static/` | How the pages look |
+| `tests/` | 25 automatic checks that prove everything works |
+| `benchmark/` | The speed test and its chart |
+| `docs/` | Longer explanations (see below) |
 
-| Layer | Implementation | Result | Median |
-|-------|----------------|--------|-------:|
-| Database | String-built query | VULNERABLE | ~5 µs |
-| Database | Parameterized query | BLOCKED | ~5 µs |
-| Monitoring | Input inspection | n/a | ~2 µs |
-| Monitoring | Inspection + log write | n/a | ~35-55 µs |
-| Application | Vulnerable endpoint | VULNERABLE | ~0.7 ms |
-| Application | Secure endpoint | BLOCKED | ~105 ms |
+Run the checks yourself: `python -m pytest`
 
-What this actually says:
+---
 
-1. **Parameterization is free.** At the database layer the safe and unsafe
-   query run in the same time, within noise.
-2. **The secure endpoint is slower because of password hashing**, not because
-   of parameterization. Hashing is slow on purpose, to make password guessing
-   expensive. That cost is a security feature.
-3. **Monitoring is cheap.** Even with a log write, the SIM layer adds well
-   under a tenth of a millisecond.
+## Honest limits
 
-## Mapping to standards
+- The "suspicious input" detector is a smart guess, not a guarantee. It is a camera, not a lock. The real protection is the careful way the Secure Login talks to the database.
+- This is a classroom practice site on one computer, not a real bank.
+- The Vulnerable Login keeps passwords readable on purpose, so the demo is simple. A real website must never do this.
 
-- OWASP Top 10 (2021): **A03 Injection**, **A09 Security Logging and Monitoring Failures** (addressed by the SIM layer), **A07 Identification and Authentication Failures** (password hashing).
-- CWE-89 (SQL Injection), CWE-532 (sensitive data in logs: avoided), CWE-204 (response discrepancy / user enumeration: mitigated by the dummy hash check).
+---
 
-## Limitations (be upfront about these)
+## Want more detail?
 
-- **The detector is heuristic.** Pattern matching can be evaded and can
-  false-positive. It is a visibility aid, not a defense; the parameterized
-  query is the defense. A production SIEM would add far richer rules.
-- Alert correlation reads a local JSON file, in memory per request. It does not
-  scale and is not tamper-proof; real deployments ship logs off-host.
-- Source IP is whatever Flask reports. Behind a proxy it would need
-  `X-Forwarded-For` handling.
-- The vulnerable lab table stores plaintext passwords **on purpose** to keep
-  the injection demo simple. Never do this in a real application.
-- No rate limiting or CSRF protection on the login forms.
-- SQLite's driver refuses multiple statements in one call, which blocks
-  stacked-query attacks here. That is a driver quirk, not a defense, and other
-  databases behave differently.
-- The benchmark measures a local single-user setup. It says nothing about
-  production performance.
-- Set `SQLI_LAB_MODE=0` to disable the vulnerable endpoint; do not expose this
-  app on an untrusted network.
+- **[docs/EXPLAINED_SIMPLY.md](docs/EXPLAINED_SIMPLY.md)** explains the whole project with an everyday analogy, for non-technical readers.
+- **[docs/TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md)** has the full technical reference: how the logging, detection and alerts work, benchmark numbers, standards mapping (OWASP, CWE) and limitations.
 
-## Ethical use
+---
 
-Everything here targets the project's own local, intentionally vulnerable
-endpoint. Only test systems you own or have written permission to test.
+## Use responsibly
 
-## License
+Only test systems you own or have written permission to test.
 
-MIT. See `LICENSE`.
+License: MIT (see `LICENSE`).
