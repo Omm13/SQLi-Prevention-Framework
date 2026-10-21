@@ -8,7 +8,8 @@
     <h1>SQL Injection Prevention Benchmark</h1>
 
     <p class="lead">
-        Comparison of vulnerable and parameterized-query implementations.
+        Security outcome and speed of each implementation, measured at
+        three layers. Times are in microseconds (1,000 &micro;s = 1 ms).
     </p>
 </div>
 
@@ -19,13 +20,14 @@
 
         <thead class="table-dark">
             <tr>
+                <th>Layer</th>
                 <th>Implementation</th>
                 <th>Test Case</th>
                 <th>Runs</th>
                 <th>Result</th>
-                <th>Average (ms)</th>
-                <th>Minimum (ms)</th>
-                <th>Maximum (ms)</th>
+                <th>Median (&micro;s)</th>
+                <th>95th pct (&micro;s)</th>
+                <th>Std dev (&micro;s)</th>
             </tr>
         </thead>
 
@@ -33,6 +35,8 @@
 
             {% for row in results %}
             <tr>
+                <td>{{ row["layer"] }}</td>
+
                 <td>{{ row["implementation"] }}</td>
 
                 <td>{{ row["test_case"] }}</td>
@@ -59,11 +63,11 @@
                     {% endif %}
                 </td>
 
-                <td>{{ row["average_response_time_ms"] }}</td>
+                <td>{{ row["median_us"] }}</td>
 
-                <td>{{ row["minimum_response_time_ms"] }}</td>
+                <td>{{ row["p95_us"] }}</td>
 
-                <td>{{ row["maximum_response_time_ms"] }}</td>
+                <td>{{ row["stdev_us"] }}</td>
             </tr>
             {% endfor %}
 
@@ -73,9 +77,21 @@
 </div>
 
 <div class="alert alert-info mt-4">
-    <strong>Interpretation:</strong>
-    The vulnerable implementation accepts the controlled SQL Injection
-    test, while the secure parameterized implementation blocks it.
+    <strong>How to read this:</strong>
+    <ul class="mb-0">
+        <li><strong>Security:</strong> the string-built query accepts the
+            controlled injection test; the parameterized query blocks it.</li>
+        <li><strong>Database layer:</strong> parameterized and string-built
+            queries run in essentially the same time. Safety costs nothing
+            measurable here.</li>
+        <li><strong>Application layer:</strong> the secure login is much
+            slower because it verifies a salted password hash on purpose
+            (hashing is slow by design to resist guessing). That cost comes
+            from hashing, not from parameterization.</li>
+        <li><strong>Monitoring layer:</strong> inspecting input is nearly
+            free; writing the log line is the larger part of the monitoring
+            cost, and is still tiny next to a request.</li>
+    </ul>
 </div>
 
 {% else %}

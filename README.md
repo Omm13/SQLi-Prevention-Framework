@@ -1,567 +1,166 @@
 # SQL Injection Prevention Framework
 
-A practical cybersecurity mini-project that demonstrates **SQL Injection (SQLi) exploitation** and compares an intentionally vulnerable SQL implementation with a **secure parameterized-query implementation**.
+A local lab that (1) shows how SQL injection works against an intentionally
+unsafe login, (2) shows the parameterized-query fix, and (3) **monitors every
+attempt with a Security Information Management (SIM) layer**: structured
+logging, detection, correlation alerts and a dashboard.
 
-This project is designed as a **controlled local laboratory environment** for academic demonstration, automated testing, benchmarking, and visualization.
+Subject: Security Information Management (SIM), Semester 7.
+Topic: *SQL Injection Prevention Framework application: demonstrate SQLi
+exploitation and benchmark parameterized query defenses.*
 
----
+> New to this? Read **[docs/EXPLAINED_SIMPLY.md](docs/EXPLAINED_SIMPLY.md)** first.
+> It explains the whole project without technical background.
 
-## Project Overview
-
-SQL Injection is a web application vulnerability that occurs when untrusted user input is incorporated directly into an SQL statement.
-
-This project demonstrates the difference between:
-
-- An intentionally vulnerable login implementation that directly inserts user input into an SQL query.
-- A secure login implementation that uses parameterized SQL queries.
-- Automated tests that verify the SQL Injection behavior.
-- A benchmark framework that repeatedly tests both implementations.
-- A visualization script for comparing benchmark measurements.
-- A web-based dashboard displaying the latest benchmark results.
-
-All testing is performed against the application's own locally hosted Flask server and SQLite database.
+All testing runs against this app's own local server and SQLite file. Nothing
+here targets any external system.
 
 ---
 
-## Objectives
+## What the project does
 
-The main objectives of this project are:
+| Part | What it shows |
+|------|---------------|
+| `/vulnerable-login` | Login built by pasting user input into SQL. The controlled demo input logs in without a password. |
+| `/secure-login` | Same login using a parameterized query and salted password hashes. The same input is rejected. |
+| `/monitor` | **SIM dashboard**: every login attempt, what looked suspicious, and active alerts. |
+| `/benchmark` | Security outcome and speed, measured at three layers with proper statistics. |
 
-1. Demonstrate SQL Injection in a controlled local environment.
-2. Show how unsafe SQL query construction can allow SQL Injection.
-3. Implement a parameterized-query defense.
-4. Compare vulnerable and secure implementations.
-5. Automate SQL Injection security testing.
-6. Measure response times using repeated benchmark runs.
-7. Visualize benchmark results.
-8. Provide a simple web interface for demonstrating the complete process.
+## The SIM layer (`security/`)
 
----
+| Module | Job |
+|--------|-----|
+| `events.py` | Writes one JSON line per login attempt to `logs/security_events.jsonl`. **Passwords are never logged.** Ready for ingestion by Wazuh / Elastic / Splunk. |
+| `detector.py` | Names the SQLi warning signs in submitted text (tautology pattern, comment markers, UNION/SELECT, statement terminators, time-delay calls). Combinations are required, so ordinary names like `O'Brien` are not flagged. |
+| `alerts.py` | Correlates events per source IP: repeated flagged input (high), failed-login burst (medium), and a **successful login that carried injection indicators (critical)**. |
 
-## Technology Stack
+Key design point: the **detector only watches; the parameterized query
+protects.** A blocked attack on the secure endpoint is still recorded, so the
+attempt is visible to the people responsible for security.
 
-| Technology | Purpose |
-|---|---|
-| Python 3.14.3 | Application, testing, and benchmark logic |
-| Flask 3.1.3 | Web application framework |
-| SQLite | Local database |
-| HTML5 | Web interface |
-| CSS | Custom styling |
-| Bootstrap 5 | User interface styling |
-| Requests | HTTP-based benchmark testing |
-| Pytest | Automated security testing |
-| Matplotlib | Benchmark visualization |
-| Git | Version control |
-| GitHub | Source-code repository |
+Example event:
 
----
-
-## Project Structure
-
-```text
-SQLi-Prevention-Framework/
-│
-├── app.py
-├── requirements.txt
-├── .gitignore
-│
-├── database/
-│   └── database.py
-│
-├── templates/
-│   ├── base.html
-│   ├── index.html
-│   ├── vulnerable_login.html
-│   ├── secure_login.html
-│   └── benchmark.html
-│
-├── static/
-│   └── css/
-│       └── style.css
-│
-├── tests/
-│   └── test_sqli.py
-│
-└── benchmark/
-    ├── benchmark.py
-    └── plot_results.py
+```json
+{"timestamp": "2026-10-21T12:00:00.123+00:00", "event_id": "a1b2c3d4e5f6",
+ "event_type": "login_attempt", "source_ip": "127.0.0.1",
+ "endpoint": "/secure-login", "username": "' OR '1'='1' /*",
+ "outcome": "failure", "indicators": ["comment_sequence", "quote_then_boolean"],
+ "severity": "high"}
 ```
 
-The benchmark additionally generates the following files locally:
+## Project structure
 
-```text
-benchmark/
-├── results.csv
-└── benchmark_results.png
+```
+app.py                      Flask app: login endpoints, /monitor, /benchmark
+database/database.py        SQLite layer (plaintext lab table + hashed secure table)
+security/                   SIM layer: events, detector, alerts
+templates/ static/          Web pages and stylesheet
+tests/                      25 self-contained tests (no server needed)
+benchmark/benchmark.py      Three-layer benchmark
+benchmark/plot_results.py   Chart of the results
+docs/EXPLAINED_SIMPLY.md    Plain-language explanation
+.github/workflows/tests.yml Runs the tests on every push
 ```
 
-These generated files are excluded from Git version control through `.gitignore`.
+## Quick start
 
----
-
-## Application Architecture
-
-The application contains three main functional areas.
-
-### 1. Vulnerable Login
-
-The `/vulnerable-login` endpoint intentionally constructs the SQL statement using string interpolation.
-
-```python
-query = f"""
-    SELECT id, username, role
-    FROM users
-    WHERE username = '{username}'
-    AND password = '{password}'
-"""
-```
-
-Because the supplied input is directly incorporated into the SQL statement, specially crafted input can alter the structure of the query.
-
-This endpoint exists only for controlled academic demonstration.
-
----
-
-### 2. Secure Login
-
-The `/secure-login` endpoint uses a parameterized SQL query.
-
-```python
-query = """
-    SELECT id, username, role
-    FROM users
-    WHERE username = ?
-    AND password = ?
-"""
-
-result = connection.execute(
-    query,
-    (username, password)
-).fetchone()
-```
-
-The SQL statement and user-supplied values are passed separately.
-
-This prevents the supplied input from being interpreted as SQL syntax.
-
----
-
-### 3. Benchmark Dashboard
-
-The `/benchmark` endpoint displays the latest benchmark results generated by:
-
-```text
-benchmark/benchmark.py
-```
-
-The Flask application reads:
-
-```text
-benchmark/results.csv
-```
-
-and displays the results in a web-based table.
-
----
-
-## SQL Injection Demonstration
-
-The project uses the following controlled SQL Injection test input:
-
-```text
-Username: ' OR '1'='1' /*
-Password: test
-```
-
-The payload is used only against the locally hosted intentionally vulnerable endpoint.
-
-### Observed Behavior
-
-| Implementation | SQL Injection Test |
-|---|---|
-| Vulnerable Login | VULNERABLE |
-| Secure Login | BLOCKED |
-
-The vulnerable implementation accepts the controlled SQL Injection test, while the parameterized implementation rejects the same test input.
-
----
-
-## Automated Security Testing
-
-Automated tests are located in:
-
-```text
-tests/test_sqli.py
-```
-
-The test suite verifies two conditions:
-
-1. The vulnerable endpoint accepts the controlled SQL Injection payload.
-2. The secure endpoint rejects the same payload.
-
-### Run the Tests
-
-Make sure the Flask application is running, then execute:
-
-```powershell
-pytest -v
-```
-
-### Latest Test Result
-
-```text
-tests/test_sqli.py::test_vulnerable_endpoint_accepts_sqli PASSED
-tests/test_sqli.py::test_secure_endpoint_blocks_sqli PASSED
-
-2 passed
-```
-
----
-
-## Benchmark Framework
-
-The benchmark framework is implemented in:
-
-```text
-benchmark/benchmark.py
-```
-
-Each test case is executed **20 times** for both implementations.
-
-The benchmark records:
-
-- Number of runs
-- Security result
-- Average response time
-- Minimum response time
-- Maximum response time
-
-### Test Cases
-
-The benchmark contains two test cases:
-
-1. Valid Login
-2. SQL Injection
-
-### Run the Benchmark
-
-With the Flask application running:
-
-```powershell
-python benchmark/benchmark.py
-```
-
----
-
-## Latest Benchmark Results
-
-The latest 20-run benchmark produced the following measurements:
-
-| Implementation | Test Case | Runs | Result | Average (ms) | Minimum (ms) | Maximum (ms) |
-|---|---|---:|---|---:|---:|---:|
-| Vulnerable | Valid Login | 20 | PASS | 4.09 | 3.08 | 7.86 |
-| Vulnerable | SQL Injection | 20 | VULNERABLE | 5.76 | 3.43 | 20.38 |
-| Secure | Valid Login | 20 | PASS | 4.18 | 3.44 | 9.05 |
-| Secure | SQL Injection | 20 | BLOCKED | 3.51 | 3.15 | 4.04 |
-
-> **Note:** Response times can vary between benchmark runs because the application is running locally. The primary security finding is the difference in SQL Injection behavior between the vulnerable and secure implementations, not the small timing differences.
-
----
-
-## Benchmark Visualization
-
-The project includes a Matplotlib-based visualization script:
-
-```text
-benchmark/plot_results.py
-```
-
-Run it using:
-
-```powershell
-python benchmark/plot_results.py
-```
-
-The script reads:
-
-```text
-benchmark/results.csv
-```
-
-and generates:
-
-```text
-benchmark/benchmark_results.png
-```
-
-The graph compares the average response times for the vulnerable and secure implementations across the two test cases.
-
----
-
-## Web Interface
-
-Start the Flask application using:
-
-```powershell
-python app.py
-```
-
-The application will start on:
-
-```text
-http://127.0.0.1:5000/
-```
-
-### Available Pages
-
-| Page | Endpoint | Purpose |
-|---|---|---|
-| Home | `/` | Project landing page |
-| Vulnerable Login | `/vulnerable-login` | Controlled SQL Injection demonstration |
-| Secure Login | `/secure-login` | Parameterized-query implementation |
-| Benchmark | `/benchmark` | Displays benchmark results |
-| Health Check | `/health` | Verifies database connectivity |
-
----
-
-## Database
-
-The project uses SQLite as its local database.
-
-The database is initialized automatically when the Flask application starts.
-
-The `users` table contains:
-
-| Column | Description |
-|---|---|
-| `id` | Unique user identifier |
-| `username` | Username |
-| `password` | Demonstration password |
-| `role` | User role |
-
-The application creates sample local accounts for demonstration purposes.
-
-The SQLite database file is excluded from Git version control through `.gitignore`.
-
----
-
-## Installation and Setup
-
-### 1. Clone the Repository
-
-```powershell
+```bash
 git clone https://github.com/Omm13/SQLi-Prevention-Framework.git
 cd SQLi-Prevention-Framework
-```
-
-### 2. Create a Virtual Environment
-
-```powershell
 python -m venv venv
-```
-
-### 3. Activate the Virtual Environment
-
-On Windows PowerShell:
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-### 4. Install Dependencies
-
-```powershell
+.\venv\Scripts\Activate.ps1          # Windows PowerShell
 pip install -r requirements.txt
+python app.py                        # http://127.0.0.1:5000/
 ```
 
-### 5. Start the Application
-
-```powershell
-python app.py
+```bash
+python -m pytest -v                  # tests: no running server required
+python benchmark/benchmark.py        # benchmark: no running server required
+python benchmark/plot_results.py     # writes benchmark/benchmark_results.png
 ```
 
-Open the following address in a browser:
+### Suggested demo order (5 minutes)
 
-```text
-http://127.0.0.1:5000/
-```
+1. Open `/vulnerable-login`, enter `' OR '1'='1' /*` as username and anything
+   as password. Login succeeds without a valid password.
+2. Open `/secure-login`, enter the same input. It is rejected.
+3. Open `/monitor`. Both attempts are logged. The successful one on the
+   vulnerable page raised a **critical** alert; the blocked one is recorded
+   but not critical.
+4. Open `/benchmark` to show the cost comparison.
 
----
+## Tests (25)
 
-## Running the Complete Demonstration
+Run with Flask's in-process test client against a temporary database and log,
+so they are self-contained and run in CI. They cover:
 
-### Step 1 — Start the Flask Application
+- Vulnerable endpoint accepts the demo input; secure endpoint rejects it.
+- Valid and wrong-password logins on both endpoints.
+- **Control cases:** names with apostrophes do not crash the secure endpoint
+  and are not falsely flagged; malformed input does not crash the lab endpoint.
+- Secure table stores hashes, not plaintext.
+- **Timing safety:** an unknown username costs the same hash check as a known
+  one (otherwise response time would reveal which usernames exist).
+- Logging: required fields present, valid JSON, **passwords never written**,
+  blocked attempts still logged.
+- Alerting: critical alert on a successful attack, high alert on repeated
+  flagged input, no alert when events are spread out or from different sources.
 
-```powershell
-python app.py
-```
+## Benchmark
 
-### Step 2 — Open the Home Page
+Warm-up runs discarded; median, 95th percentile and standard deviation are
+reported (not mean/min/max, which a single outlier distorts). Times in
+microseconds. Typical results on a development machine (yours will differ):
 
-Navigate to:
+| Layer | Implementation | Result | Median |
+|-------|----------------|--------|-------:|
+| Database | String-built query | VULNERABLE | ~5 µs |
+| Database | Parameterized query | BLOCKED | ~5 µs |
+| Monitoring | Input inspection | n/a | ~2 µs |
+| Monitoring | Inspection + log write | n/a | ~35-55 µs |
+| Application | Vulnerable endpoint | VULNERABLE | ~0.7 ms |
+| Application | Secure endpoint | BLOCKED | ~105 ms |
 
-```text
-http://127.0.0.1:5000/
-```
+What this actually says:
 
-### Step 3 — Test the Vulnerable Login
+1. **Parameterization is free.** At the database layer the safe and unsafe
+   query run in the same time, within noise.
+2. **The secure endpoint is slower because of password hashing**, not because
+   of parameterization. Hashing is slow on purpose, to make password guessing
+   expensive. That cost is a security feature.
+3. **Monitoring is cheap.** Even with a log write, the SIM layer adds well
+   under a tenth of a millisecond.
 
-Open:
+## Mapping to standards
 
-```text
-http://127.0.0.1:5000/vulnerable-login
-```
+- OWASP Top 10 (2021): **A03 Injection**, **A09 Security Logging and Monitoring Failures** (addressed by the SIM layer), **A07 Identification and Authentication Failures** (password hashing).
+- CWE-89 (SQL Injection), CWE-532 (sensitive data in logs: avoided), CWE-204 (response discrepancy / user enumeration: mitigated by the dummy hash check).
 
-Use the controlled SQL Injection test:
+## Limitations (be upfront about these)
 
-```text
-Username: ' OR '1'='1' /*
-Password: test
-```
+- **The detector is heuristic.** Pattern matching can be evaded and can
+  false-positive. It is a visibility aid, not a defense; the parameterized
+  query is the defense. A production SIEM would add far richer rules.
+- Alert correlation reads a local JSON file, in memory per request. It does not
+  scale and is not tamper-proof; real deployments ship logs off-host.
+- Source IP is whatever Flask reports. Behind a proxy it would need
+  `X-Forwarded-For` handling.
+- The vulnerable lab table stores plaintext passwords **on purpose** to keep
+  the injection demo simple. Never do this in a real application.
+- No rate limiting or CSRF protection on the login forms.
+- SQLite's driver refuses multiple statements in one call, which blocks
+  stacked-query attacks here. That is a driver quirk, not a defense, and other
+  databases behave differently.
+- The benchmark measures a local single-user setup. It says nothing about
+  production performance.
+- Set `SQLI_LAB_MODE=0` to disable the vulnerable endpoint; do not expose this
+  app on an untrusted network.
 
-The vulnerable implementation should report a successful login.
+## Ethical use
 
-### Step 4 — Test the Secure Login
-
-Open:
-
-```text
-http://127.0.0.1:5000/secure-login
-```
-
-Use the same input:
-
-```text
-Username: ' OR '1'='1' /*
-Password: test
-```
-
-The secure implementation should reject the request.
-
-### Step 5 — Run Automated Tests
-
-```powershell
-pytest -v
-```
-
-### Step 6 — Run the Benchmark
-
-```powershell
-python benchmark/benchmark.py
-```
-
-### Step 7 — Generate the Visualization
-
-```powershell
-python benchmark/plot_results.py
-```
-
-### Step 8 — View the Benchmark Dashboard
-
-Open:
-
-```text
-http://127.0.0.1:5000/benchmark
-```
-
----
-
-## Security Principle Demonstrated
-
-The central security principle demonstrated by this project is:
-
-> **Never construct SQL statements by directly concatenating untrusted user input.**
-
-Applications should use parameterized queries or prepared statements when incorporating user-supplied values into database operations.
-
-Additional security practices that should be considered in real applications include:
-
-- Input validation
-- Secure password storage
-- Least-privilege database accounts
-- Secure error handling
-- Authentication controls
-- Authorization controls
-- CSRF protection
-- Security logging and monitoring
-
-Parameterized queries are the primary SQL Injection prevention mechanism demonstrated by this project.
-
----
-
-## Vulnerable vs Secure Implementation
-
-| Feature | Vulnerable Implementation | Secure Implementation |
-|---|---|---|
-| SQL construction | String interpolation | Parameterized query |
-| User input handling | Incorporated into SQL | Passed separately |
-| Controlled SQLi test | Accepted | Blocked |
-| Intended purpose | Vulnerability demonstration | Security demonstration |
-| Production use | Not appropriate | Recommended approach |
-
----
-
-## Limitations
-
-This project is an academic cybersecurity demonstration and has several limitations:
-
-- The application is intended to run locally.
-- SQLite is used instead of a production database system.
-- Passwords are stored as plain text because the project specifically focuses on SQL Injection prevention.
-- The benchmark uses a small number of local HTTP requests.
-- Benchmark response times should not be interpreted as production performance measurements.
-- The vulnerable endpoint intentionally contains insecure SQL construction and should not be deployed to a production environment.
-- The SQL Injection payloads are designed for this controlled demonstration and are not intended for unauthorized systems.
-
----
-
-## Ethical and Safety Considerations
-
-All SQL Injection testing in this project is performed against the application's own intentionally vulnerable endpoint running on the local machine.
-
-The techniques demonstrated should only be used on systems for which the tester has explicit authorization.
-
-This project does not target external websites, services, databases, or third-party systems.
-
----
-
-## Future Improvements
-
-Possible future improvements include:
-
-- Password hashing using a modern password-hashing algorithm.
-- CSRF protection.
-- Improved authentication and session management.
-- Additional SQL Injection test cases.
-- Expanded automated security testing.
-- Security logging and monitoring.
-- Support for additional database systems.
-- Larger-scale performance testing.
-- Additional benchmark metrics.
-- More detailed security reporting.
-
----
-
-## Conclusion
-
-This project demonstrates the security difference between unsafe SQL query construction and parameterized SQL queries.
-
-The controlled experiment shows that the intentionally vulnerable implementation accepts the SQL Injection test, while the parameterized implementation blocks it.
-
-The project combines:
-
-- SQL Injection demonstration
-- Secure coding practices
-- Automated security testing
-- Repeated benchmarking
-- Performance measurement
-- Data visualization
-- Web-based reporting
-
-It therefore provides a practical academic demonstration of SQL Injection prevention within a controlled local laboratory environment.
-
----
+Everything here targets the project's own local, intentionally vulnerable
+endpoint. Only test systems you own or have written permission to test.
 
 ## License
 
-This project is intended for academic and educational purposes.
+MIT. See `LICENSE`.

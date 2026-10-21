@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Security Monitor - SQLi Prevention Framework{% endblock %}
+
+{% block content %}
+
+<div class="text-center mb-4">
+    <h1>Security Monitor</h1>
+    <p class="lead">
+        Every login attempt is recorded here. Suspicious input is flagged,
+        and repeated suspicious activity raises an alert.
+    </p>
+</div>
+
+<div class="row g-3 mb-4 text-center">
+    <div class="col-md-4">
+        <div class="card shadow-sm"><div class="card-body">
+            <div class="display-6">{{ total }}</div>
+            <div class="text-muted">Login attempts recorded</div>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm"><div class="card-body">
+            <div class="display-6">{{ flagged }}</div>
+            <div class="text-muted">Flagged as suspicious</div>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm"><div class="card-body">
+            <div class="display-6">{{ alerts|length }}</div>
+            <div class="text-muted">Active alerts</div>
+        </div></div>
+    </div>
+</div>
+
+<h3>Alerts</h3>
+{% if alerts %}
+<div class="mb-4">
+    {% for alert in alerts %}
+    <div class="alert {% if alert.severity == 'critical' %}alert-danger{% elif alert.severity == 'high' %}alert-warning{% else %}alert-info{% endif %}">
+        <strong>{{ alert.severity|upper }}</strong> &middot; {{ alert.summary }}
+        <div class="small text-muted">
+            {{ alert.first_seen }} &rarr; {{ alert.last_seen }}
+            &middot; rule: <code>{{ alert.rule }}</code>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-secondary mb-4">No alerts. Try the login pages, then come back.</div>
+{% endif %}
+
+<h3>Recent events <small class="text-muted fs-6">(newest first, up to 50)</small></h3>
+{% if events %}
+<div class="table-responsive mb-4">
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Time (UTC)</th>
+                <th>Page</th>
+                <th>Username entered</th>
+                <th>Outcome</th>
+                <th>Warning signs</th>
+                <th>Severity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in events %}
+            <tr>
+                <td>{{ e.timestamp }}</td>
+                <td>{{ e.endpoint }}</td>
+                <td><code>{{ e.username }}</code></td>
+                <td>
+                    {% if e.outcome == 'success' %}
+                    <span class="badge bg-success">success</span>
+                    {% else %}
+                    <span class="badge bg-secondary">failure</span>
+                    {% endif %}
+                </td>
+                <td>{{ e.indicators|join(', ') or '-' }}</td>
+                <td>
+                    {% if e.severity == 'high' %}<span class="badge bg-danger">high</span>
+                    {% elif e.severity == 'medium' %}<span class="badge bg-warning text-dark">medium</span>
+                    {% else %}<span class="badge bg-light text-dark">none</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-secondary mb-4">No events yet.</div>
+{% endif %}
+
+<h3>What the detector looks for</h3>
+<ul>
+    {% for rule in rules %}
+    <li><code>{{ rule.name }}</code> &mdash; {{ rule.description }}</li>
+    {% endfor %}
+</ul>
+<p class="text-muted small">
+    Passwords are never written to the log. The detector only
+    <em>watches</em>; the real protection is the parameterized query.
+</p>
+
+<div class="text-center mt-4">
+    <a href="/" class="btn btn-secondary">Back to Home</a>
+</div>
+
+{% endblock %}
